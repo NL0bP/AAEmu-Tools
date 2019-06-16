@@ -48,8 +48,55 @@ namespace AAEmu.DBViewer
             public string descriptionLocalized = string.Empty;
             public string SearchString = string.Empty;
         }
-        Dictionary<long, GameItem> CurrentItems = new Dictionary<long, GameItem>();
-        Dictionary<long, string> CurrentIcons = new Dictionary<long, string>();
+
+        class GameSkills
+        {
+            // Actual DB entries
+            public long id = 0;
+            public string name = string.Empty;
+            public string desc = string.Empty;
+            public string web_desc = string.Empty;
+            public long cost = 0;
+            public long icon_id = 0;
+            public bool show = false;
+            public long cooldown_time = 0;
+            public long casting_time = 0;
+            public bool ignore_global_cooldown = false;
+            public long effect_delay = 0;
+            public long ability_id = 0;
+            public long mana_cost = 0;
+            public long timing_id = 0;
+            public long consume_lp = 0;
+
+            // Helpers
+            public string nameLocalized = string.Empty;
+            public string descriptionLocalized = string.Empty;
+            public string webDescriptionLocalized = string.Empty;
+            public string SearchString = string.Empty;
+        }
+
+        class GameNPC
+        {
+            // Actual DB entries
+            public long id = 0;
+            public string name = string.Empty;
+            public long char_race_id = 0;
+            public long npc_grade_id = 0;
+            public long npc_kind_id = 0;
+            public long level = 0;
+            public long faction_id = 0;
+            public long model_id = 0;
+
+            // Helpers
+            public string nameLocalized = string.Empty;
+            public string SearchString = string.Empty;
+        }
+
+
+        Dictionary<long, GameItem> AllItems = new Dictionary<long, GameItem>();
+        Dictionary<long, GameSkills> AllSkills = new Dictionary<long, GameSkills>();
+        Dictionary<long, GameNPC> AllNPCs = new Dictionary<long, GameNPC>();
+        Dictionary<long, string> AllIcons = new Dictionary<long, string>();
 
         public MainForm()
         {
@@ -112,10 +159,10 @@ namespace AAEmu.DBViewer
                     command.Prepare();
                     using (var reader = new SQLiteWrapperReader(command.ExecuteReader()))
                     {
-                        CurrentIcons.Clear();
+                        AllIcons.Clear();
                         while (reader.Read())
                         {
-                            CurrentIcons.Add(reader.GetInt64("id"), reader.GetString("filename"));
+                            AllIcons.Add(reader.GetInt64("id"), reader.GetString("filename"));
                         }
                     }
                 }
@@ -160,6 +207,11 @@ namespace AAEmu.DBViewer
             Properties.Settings.Default.DefaultGameLanguage = lng ;
         }
 
+        private bool DBValueToBool(string val)
+        {
+            return ((val != null) && ((val == "t") || (val == "T") || (val == "1")));
+        }
+
         private void LoadItems()
         {
             string sql = "SELECT * FROM items ORDER BY id ASC";
@@ -168,7 +220,7 @@ namespace AAEmu.DBViewer
             {
                 using (var command = connection.CreateCommand())
                 {
-                    CurrentItems.Clear();
+                    AllItems.Clear();
 
                     command.CommandText = sql;
                     command.Prepare();
@@ -188,8 +240,7 @@ namespace AAEmu.DBViewer
                             t.refund = reader.GetInt64("refund");
                             t.max_stack_size = reader.GetInt64("max_stack_size");
                             t.icon_id = reader.GetInt64("icon_id");
-                            var sellableStr = reader.GetString("sellable");
-                            t.sellable = (sellableStr.ToLower() == "t");
+                            t.sellable = DBValueToBool(reader.GetString("sellable"));
                             t.fixed_grade = reader.GetInt64("fixed_grade");
 
                             t.nameLocalized = GetTranslationByID(t.id, "items", "name", t.name);
@@ -198,7 +249,7 @@ namespace AAEmu.DBViewer
                             t.SearchString = t.name + " " + t.description + " " + t.nameLocalized + " " + t.descriptionLocalized ;
                             t.SearchString = t.SearchString.ToLower();
 
-                            CurrentItems.Add(t.id, t);
+                            AllItems.Add(t.id, t);
                         }
 
                         Cursor = Cursors.Default;
@@ -208,6 +259,96 @@ namespace AAEmu.DBViewer
                 }
             }
             
+        }
+
+        private void LoadSkills()
+        {
+            string sql = "SELECT * FROM skills ORDER BY id ASC";
+
+            using (var connection = SQLite.CreateConnection())
+            {
+                using (var command = connection.CreateCommand())
+                {
+                    AllSkills.Clear();
+
+                    command.CommandText = sql;
+                    command.Prepare();
+                    using (var reader = new SQLiteWrapperReader(command.ExecuteReader()))
+                    {
+                        Application.UseWaitCursor = true;
+                        Cursor = Cursors.WaitCursor;
+
+                        while (reader.Read())
+                        {
+                            GameSkills t = new GameSkills();
+                            t.id = reader.GetInt64("id");
+                            t.name = reader.GetString("name");
+                            t.desc = reader.GetString("desc");
+                            t.web_desc = reader.GetString("web_desc");
+                            t.cost = reader.GetInt64("cost");
+                            t.icon_id = reader.GetInt64("icon_id");
+                            t.show = DBValueToBool(reader.GetString("show"));
+                            t.cooldown_time = reader.GetInt64("cooldown_time");
+                            t.casting_time = reader.GetInt64("casting_time");
+                            t.ignore_global_cooldown = DBValueToBool(reader.GetString("ignore_global_cooldown"));
+                            t.effect_delay = reader.GetInt64("effect_delay");
+                            t.ability_id = reader.GetInt64("ability_id");
+                            t.mana_cost = reader.GetInt64("mana_cost");
+                            t.timing_id = reader.GetInt64("timing_id");
+                            t.consume_lp = reader.GetInt64("consume_lp");
+
+                            t.nameLocalized = GetTranslationByID(t.id, "skills", "name", t.name);
+                            t.descriptionLocalized = GetTranslationByID(t.id, "skills", "desc", t.descriptionLocalized);
+                            t.webDescriptionLocalized = GetTranslationByID(t.id, "skills", "web_desc", t.webDescriptionLocalized);
+
+                            t.SearchString = t.name + " " + t.desc + " " + t.nameLocalized + " " + t.descriptionLocalized;
+                            t.SearchString = t.SearchString.ToLower();
+
+                            AllSkills.Add(t.id, t);
+                        }
+
+                        Cursor = Cursors.Default;
+                        Application.UseWaitCursor = false;
+
+                    }
+                }
+            }
+
+        }
+
+        private void LoadNPCs()
+        {
+            string sql = "SELECT * FROM npcs ORDER BY id ASC";
+
+            using (var connection = SQLite.CreateConnection())
+            {
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = sql;
+                    command.Prepare();
+                    using (var reader = new SQLiteWrapperReader(command.ExecuteReader()))
+                    {
+                        AllNPCs.Clear();
+                        while (reader.Read())
+                        {
+                            var t = new GameNPC();
+                            t.id = reader.GetInt64("id");
+                            t.name = reader.GetString("name");
+                            t.char_race_id = reader.GetInt64("char_race_id");
+                            t.npc_grade_id = reader.GetInt64("npc_grade_id");
+                            t.npc_kind_id = reader.GetInt64("npc_kind_id");
+                            t.level = reader.GetInt64("level");
+                            t.faction_id = reader.GetInt64("faction_id");
+                            t.model_id = reader.GetInt64("model_id");
+                            t.nameLocalized = GetTranslationByID(t.id, "npcs", "name", t.name);
+
+                            t.SearchString = t.name + " " + t.nameLocalized ;
+                            t.SearchString = t.SearchString.ToLower();
+                            AllNPCs.Add(t.id, t);
+                        }
+                    }
+                }
+            }
         }
 
 
@@ -234,7 +375,7 @@ namespace AAEmu.DBViewer
             Application.UseWaitCursor = true;
             Cursor = Cursors.WaitCursor;
             dgvItem.Visible = false;
-            foreach (var item in CurrentItems)
+            foreach (var item in AllItems)
             {
                 bool addThis = false;
                 if (SearchByID)
@@ -276,14 +417,22 @@ namespace AAEmu.DBViewer
 
         private string GetTranslationByID(long idx, string table, string field, string defaultValue = "")
         {
+            string res = string.Empty;
             string k = table + ":" + field + ":" + idx.ToString();
             if (CurrentTranslations.TryGetValue(k, out GameTranslation val))
-                return val.value;
+                res = val.value;
             // If no translation found ...
-            if (defaultValue == "")
-                return "<NT:" + table + ":" + field + ":" + idx.ToString() + ">";
+            if (res == string.Empty)
+            {
+                if (defaultValue == string.Empty)
+                    return "<NT:" + table + ":" + field + ":" + idx.ToString() + ">";
+                else
+                    return defaultValue;
+            }
             else
-                return defaultValue;
+            {
+                return res;
+            }
         }
 
         /// <summary>
@@ -350,6 +499,46 @@ namespace AAEmu.DBViewer
             while (restText.Length > 0)
             {
                 var pipeStart = restText.IndexOf("|");
+                var atStart = restText.IndexOf("@");
+
+                if ((pipeStart >= 0) && (atStart >= 0) && (atStart < pipeStart))
+                {
+                    pipeStart = -1;
+                }
+
+                if ( (atStart >= 0) && (restText.Length >= pipeStart + 12) )
+                {
+                    var atStartBracket = restText.IndexOf("(", atStart);
+                    var atEndBracket = restText.IndexOf(")", atStart);
+                    if ((atStartBracket >= 0) && (atEndBracket >= 0) && (atEndBracket > atStartBracket))
+                    {
+                        var fieldNameStr = restText.Substring(atStart+1, atStartBracket - atStart - 1);
+                        var fieldValStr = restText.Substring(atStartBracket+1, atEndBracket - atStartBracket - 1);
+                        if (long.TryParse(fieldValStr, out long itemVal))
+                        {
+                            rt.AppendText(restText.Substring(0, atStart));
+                            rt.SelectionColor = Color.Yellow;
+                            if ((fieldNameStr == "ITEM_NAME") && (AllItems.TryGetValue(itemVal, out GameItem item)))
+                            {
+                                rt.AppendText(item.nameLocalized);
+                            }
+                            else
+                            if ((fieldNameStr == "NPC_NAME") && (AllNPCs.TryGetValue(itemVal, out GameNPC npc)))
+                            {
+                                rt.AppendText(npc.nameLocalized);
+                            }
+                            else
+                            {
+                                rt.AppendText("@"+fieldNameStr+"(" + itemVal.ToString() + ")");
+                            }
+                            rt.SelectionColor = rt.ForeColor;
+
+                            restText = restText.Substring(atEndBracket + 1);
+                            pipeStart = -1;
+                        }
+                    }
+                }
+
 
                 if ((pipeStart >= 0) && (restText.Length >= pipeStart + 1))
                 {
@@ -401,6 +590,11 @@ namespace AAEmu.DBViewer
                     restText = restText.Substring(colResetPos + 2);
                 }
                 else
+                if (atStart >= 0)
+                {
+                    // already handled
+                }
+                else
                 {
                     rt.AppendText(restText);
                     restText = string.Empty;
@@ -409,53 +603,94 @@ namespace AAEmu.DBViewer
             
         }
 
+        private void IconIDToLabel(long icon_id, Label iconImgLabel)
+        {
+
+            if (pak.isOpen)
+            {
+                if (AllIcons.TryGetValue(icon_id, out var iconname))
+                {
+                    var fn = "game/ui/icon/" + iconname;
+
+                    if (pak.FileExists(fn))
+                    {
+                        try
+                        {
+                            var fStream = pak.ExportFileAsStream(fn);
+                            var fif = FREE_IMAGE_FORMAT.FIF_DDS;
+                            FIBITMAP fiBitmap = FreeImage.LoadFromStream(fStream, ref fif);
+                            var bmp = FreeImage.GetBitmap(fiBitmap);
+                            iconImgLabel.Image = bmp;
+
+                            iconImgLabel.Text = "";
+                            // itemIcon.Text = "[" + iconname + "]";
+                        }
+                        catch
+                        {
+                            iconImgLabel.Image = null;
+                            iconImgLabel.Text = "ERROR - " + iconname;
+                        }
+                    }
+                    else
+                    {
+                        iconImgLabel.Image = null;
+                        iconImgLabel.Text = "NOT FOUND - " + iconname + " ?";
+                    }
+                }
+                else
+                {
+                    iconImgLabel.Image = null;
+                    iconImgLabel.Text = icon_id.ToString() + "?";
+                }
+            }
+            else
+            {
+                iconImgLabel.Image = null;
+                iconImgLabel.Text = icon_id.ToString();
+            }
+
+        }
+
+        private string MSToString(long msTime)
+        {
+            string res = string.Empty;
+            long ms = (msTime % 1000);
+            msTime = msTime / 1000;
+            long ss = (msTime % 60);
+            msTime = msTime / 60;
+            long mm = (msTime % 60);
+            msTime = msTime / 60;
+            long hh = (msTime % 24);
+            msTime = msTime / 24;
+            long dd = msTime;
+
+            if (dd > 0)
+                res += dd.ToString() + "d ";
+            if (hh > 0)
+                res += hh.ToString() + "h ";
+            if (mm > 0)
+                res += mm.ToString() + "m ";
+            if (ss > 0)
+                res += ss.ToString() + "s ";
+            if (ms > 0)
+                res += ms.ToString() + "ms";
+
+            if (res == string.Empty)
+                res = "none";
+
+            return res;
+        }
+
         private void ShowDBItem(long idx)
         {
-            if (CurrentItems.TryGetValue(idx,out var item))
+            if (AllItems.TryGetValue(idx,out var item))
             {
                 lItemID.Text = idx.ToString();
                 lItemName.Text = item.nameLocalized ;
                 lItemCategory.Text = GetTranslationByID(item.catgegory_id, "item_categories", "name") + " (" + item.catgegory_id.ToString() + ")";
                 FormattedTextToRichtEdit(item.descriptionLocalized,rtItemDesc);
                 lItemLevel.Text = item.level.ToString();
-                if (pak.isOpen)
-                {
-                    if (CurrentIcons.TryGetValue(item.icon_id, out var iconname))
-                    {
-                        var fn = "game/ui/icon/" + iconname;
-
-                        if (pak.FileExists(fn))
-                        {
-                            try
-                            {
-                                var fStream = pak.ExportFileAsStream(fn);
-                                var fif = FREE_IMAGE_FORMAT.FIF_DDS;
-                                FIBITMAP fiBitmap = FreeImage.LoadFromStream(fStream, ref fif);
-                                var bmp = FreeImage.GetBitmap(fiBitmap);
-                                itemIcon.Image = bmp;
-
-                                itemIcon.Text = "";
-                                // itemIcon.Text = "[" + iconname + "]";
-                            }
-                            catch
-                            {
-                                itemIcon.Text = "ERROR - " + iconname ;
-                            }
-                        }
-                        else
-                        {
-                            itemIcon.Text = "NOT FOUND - " + iconname + " ?";
-                        }
-                    }
-                    else
-                    {
-                        itemIcon.Text = item.icon_id.ToString()+"?";
-                    }
-                }
-                else
-                {
-                    itemIcon.Text = item.icon_id.ToString();
-                }
+                IconIDToLabel(item.icon_id, itemIcon);
             }
             else
             {
@@ -467,6 +702,36 @@ namespace AAEmu.DBViewer
                 itemIcon.Text = "???";
             }
         }
+
+        private void ShowDBSkill(long idx)
+        {
+            if (AllSkills.TryGetValue(idx, out var skill))
+            {
+                lSkillID.Text = idx.ToString();
+                lSkillName.Text = skill.nameLocalized;
+                lSkillCost.Text = skill.cost.ToString();
+                lSkillMana.Text = skill.mana_cost.ToString();
+                lSkillLabor.Text = skill.consume_lp.ToString();
+                lSkillCooldown.Text = MSToString(skill.cooldown_time);
+                lSkillGCD.Text = skill.ignore_global_cooldown ? "Ignore" : "Normal";
+                FormattedTextToRichtEdit(skill.descriptionLocalized, rtSkillDescription);
+                IconIDToLabel(skill.icon_id, skillIcon);
+            }
+            else
+            {
+                lSkillID.Text = idx.ToString();
+                lSkillName.Text = "<not found>";
+                lSkillCost.Text = "";
+                lSkillMana.Text = "";
+                lSkillLabor.Text = "";
+                lSkillCooldown.Text = "";
+                lSkillGCD.Text = "";
+                rtSkillDescription.Clear();
+                skillIcon.Image = null;
+                skillIcon.Text = "???";
+            }
+        }
+
 
         private string VisualizeDropRate(long droprate)
         {
@@ -622,6 +887,8 @@ namespace AAEmu.DBViewer
             LoadTranslations(Properties.Settings.Default.DefaultGameLanguage);
             LoadIcons();
             LoadItems();
+            LoadSkills();
+            LoadNPCs();
 
             return true;
         }
@@ -684,6 +951,95 @@ namespace AAEmu.DBViewer
             {
                 BtnLootSearch_Click(null, null);
             }
+        }
+
+        private void TSkillSearch_TextChanged(object sender, EventArgs e)
+        {
+            btnSkillSearch.Enabled = (tSkillSearch.Text != string.Empty);
+        }
+
+        private void BtnSkillSearch_Click(object sender, EventArgs e)
+        {
+            dgvSkills.Rows.Clear();
+            string searchText = tSkillSearch.Text;
+            if (searchText == string.Empty)
+                return;
+            string lng = cbItemSearchLanguage.Text;
+            string sql = string.Empty;
+            string sqlWhere = string.Empty;
+            long searchID;
+            bool SearchByID = false;
+            if (long.TryParse(searchText, out searchID))
+                SearchByID = true;
+            bool showFirst = true;
+            long firstResult = -1;
+            string searchTextLower = searchText.ToLower();
+
+            // More Complex syntax with category names
+            // SELECT t1.idx, t1.ru, t1.ru_ver, t2.ID, t2.category_id, t3.name, t4.en_us FROM localized_texts as t1 LEFT JOIN items as t2 ON (t1.idx = t2.ID) LEFT JOIN item_categories as t3 ON (t2.category_id = t3.ID) LEFT JOIN localized_texts as t4 ON ((t4.idx = t3.ID) AND (t4.tbl_name = 'item_categories') AND (t4.tbl_column_name = 'name') ) WHERE (t1.tbl_name = 'items') AND (t1.tbl_column_name = 'name') AND (t1.ru LIKE '%Камень%') ORDER BY t1.ru ASC 
+
+            Application.UseWaitCursor = true;
+            Cursor = Cursors.WaitCursor;
+            dgvSkills.Visible = false;
+            foreach (var skill in AllSkills)
+            {
+                bool addThis = false;
+                if (SearchByID)
+                {
+                    if (skill.Key == searchID)
+                    {
+                        addThis = true;
+                    }
+                }
+                else
+                if (skill.Value.SearchString.IndexOf(searchTextLower) >= 0)
+                    addThis = true;
+
+                if (addThis)
+                {
+                    int line = dgvSkills.Rows.Add();
+                    var row = dgvSkills.Rows[line];
+                    long itemIdx = skill.Value.id;
+                    if (firstResult < 0)
+                        firstResult = itemIdx;
+                    row.Cells[0].Value = itemIdx.ToString();
+                    row.Cells[1].Value = skill.Value.nameLocalized;
+                    row.Cells[2].Value = skill.Value.descriptionLocalized;
+                    row.Cells[3].Value = skill.Value.webDescriptionLocalized;
+
+                    if (showFirst)
+                    {
+                        showFirst = false;
+                        ShowDBSkill(itemIdx);
+                    }
+                }
+            }
+            dgvSkills.Visible = true;
+            Cursor = Cursors.Default;
+            Application.UseWaitCursor = false;
+
+        }
+
+        private void TSkillSearch_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                BtnSkillSearch_Click(null, null);
+            }
+        }
+
+        private void DgvSkills_SelectionChanged(object sender, EventArgs e)
+        {
+            if (dgvSkills.SelectedRows.Count <= 0)
+                return;
+            var row = dgvSkills.SelectedRows[0];
+            if (row.Cells.Count <= 0)
+                return;
+
+            var val = row.Cells[0].Value;
+            if (val == null)
+                return;
+            ShowDBSkill(long.Parse(val.ToString()));
         }
     }
 }
