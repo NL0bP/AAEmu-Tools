@@ -1,4 +1,8 @@
-﻿using System;
+﻿using AAEmu.DBViewer.DbDefs;
+using AAEmu.DBViewer.enums;
+using AAEmu.Game.Utils.DB;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -6,9 +10,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
-using AAEmu.DBViewer.DbDefs;
-using AAEmu.DBViewer.enums;
-using AAEmu.Game.Utils.DB;
 
 namespace AAEmu.DBViewer;
 
@@ -328,6 +329,7 @@ public partial class MainForm
         foreach (var t in qTextQuery)
             questText += t + "\r\r";
 
+        var requiredQuestsText = string.Empty;
         foreach (var c in comps)
         {
             // Component Info
@@ -386,6 +388,14 @@ public partial class MainForm
             var requires = GetQuestComponentRequirements(c.Id);
             var reqNode = AddUnitRequirementNode(requires, c.OrUnitReqs, componentNode.Nodes);
 
+            foreach (var require in requires)
+            {
+                if (require.KindId == GameUnitReqsKind.CompleteQuestContext)
+                {
+                    requiredQuestsText += $"{AaDb.DbQuestContexts.GetValueOrDefault(require.Value1)?.NameLocalized ?? "unknown quest"} |nc;({require.Value1})|r\r";
+                }
+            }
+
             var componentInfoNode = componentNode.Nodes.Add("Properties");
             componentInfoNode.ForeColor = Color.Yellow;
             var fieldsList = GetCustomTableValues("quest_components", "id", c.Id.ToString());
@@ -442,6 +452,32 @@ public partial class MainForm
                 actsNode.Expand();
             }
         }
+
+        // Previous quests
+        if (!string.IsNullOrWhiteSpace(requiredQuestsText))
+        {
+            questText += "|nr;Previous Quest(s)|r:\r" + requiredQuestsText + "\r";
+        }
+        
+        // Next quests
+        var nextComponentCheck = AaDb.DbUnitReqs.Values.Where(x => x.KindId == GameUnitReqsKind.CompleteQuestContext && x.Value1 == q.Id && x.OwnerType == "QuestComponent");
+        var nextQuestText = "|ni;Next Quest(s)|r:\r";
+        var nextQuestcount = 0;
+        foreach (var nextUnitReqs in nextComponentCheck)
+        {
+            var nextQuests = AaDb.DbQuestComponents.Values.Where(x => x.Id == nextUnitReqs.OwnerId && x.ComponentKindId == 2); // kind 2 = start
+            if (nextQuests.Any())
+            {
+                foreach (var questStartComponent in nextQuests)
+                {
+                    nextQuestText += $"{AaDb.DbQuestContexts.GetValueOrDefault(questStartComponent.QuestContextId)?.NameLocalized ?? "unknown quest"} |nc;({questStartComponent.QuestContextId})|r\r";
+                    nextQuestcount++;
+                }
+            }
+        }
+
+        if (nextQuestcount > 0)
+            questText += nextQuestText + "\r";
 
         rootNode.Expand();
         tvQuestWorkflow.SelectedNode = rootNode;
